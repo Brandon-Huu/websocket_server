@@ -1,21 +1,4 @@
-//! A chat server that broadcasts a message to all connections.
-//!
-//! This is a simple line-based server which accepts WebSocket connections,
-//! reads lines from those connections, and broadcasts the lines to all other
-//! connected clients.
-//!
-//! You can test this out by running:
-//!
-//!     cargo run --example server 127.0.0.1:12345
-//!
-//! And then in another window run:
-//!
-//!     cargo run --example client ws://127.0.0.1:12345/
-//!
-//! You can run the second command in multiple windows and then chat between the
-//! two, seeing the messages from the other client as they're received. For all
-//! connected clients they'll all join the same room and see everyone else's
-//! messages.
+use ecies::{decrypt, encrypt, utils::generate_keypair};
 use anyhow::{anyhow, Error, Result};
 
 use std::{
@@ -49,13 +32,15 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
 
     let (outgoing, incoming) = ws_stream.split();
 
+    let (secret_key,public_key) = generate_keypair();
+
     let broadcast_incoming = incoming.try_for_each(|msg| {
         println!("Received a message from {}: {}", addr, msg.to_text().unwrap());
         let peers = peer_map.lock().unwrap();
 
         // We want to broadcast the message to everyone except ourselves.
         let broadcast_recipients =
-            peers.iter().filter(|(peer_addr, _)| peer_addr != &&addr).map(|(_, ws_sink)| ws_sink);
+            peers.iter().map(|(_, ws_sink)| ws_sink);
 
         for recp in broadcast_recipients {
             recp.unbounded_send(msg.clone()).unwrap();
@@ -63,7 +48,10 @@ async fn handle_connection(peer_map: PeerMap, raw_stream: TcpStream, addr: Socke
 
         future::ok(())
     });
-
+    
+    for (_,peer) in (peer_map.lock().unwrap().iter()) {
+        peer.unbounded_send(Message::Binary(public_key.serialize().to_vec())).unwrap();
+    }
     let receive_from_others = rx.map(Ok).forward(outgoing);
 
     pin_mut!(broadcast_incoming, receive_from_others);

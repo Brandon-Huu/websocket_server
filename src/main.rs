@@ -1,4 +1,4 @@
-#![allow(unused,deprecated)]
+#![allow(unused, deprecated)]
 mod main_program;
 use anyhow::{anyhow, Error, Result};
 use clap::{Parser, Subcommand};
@@ -68,7 +68,7 @@ fn add_key_file(name: &str, key: &PathBuf) -> Result<()> {
     };
 
     let mut destination = std::env::home_dir().unwrap();
-    destination.push(".influencer_tracker");
+    destination.push(".websocket_server");
     destination.push("public_keys");
     destination.push(format!("{}.pub", name));
 
@@ -87,7 +87,7 @@ fn add_key_url(name: &str, key: &str) -> Result<()> {
 }
 fn remove_key(name: &str) -> Result<()> {
     let mut destination = std::env::home_dir().unwrap();
-    destination.push(".influencer_tracker");
+    destination.push(".websocket_server");
     destination.push("public_keys");
     destination.push(format!("{}.pub", name));
 
